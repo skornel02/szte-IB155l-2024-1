@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link
+      rel="stylesheet"
+      href="/node_modules/@shoelace-style/shoelace/dist/themes/light.css"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Számítógépes grafika</title>
+  </head>
+  <body>
+    <nav>
+      <sl-button-group label="Alignment" class="navbar">
+        <sl-button><a href="#">Elemi modellezés</a></sl-button>
+        <sl-button
+          ><a href="/FenyAnyagArnyek">Fény, anyag, árnyék</a></sl-button
+        >
+        <sl-button><a href="/Blender">Blender</a></sl-button>
+        <sl-button
+          ><a href="/GeometriaiTransform"
+            >Geometriai transzformációk</a
+          ></sl-button
+        >
+        <sl-button><a href="/Beadando">Beadandó</a></sl-button>
+      </sl-button-group>
+    </nav>
+
+    <sl-details summary="Feladat leírás">
+      <sl-alert open>
+        <sl-icon slot="icon" name="info-circle"></sl-icon>
+        Készítsen egy stilizált Three.js drótvázas modellt, ami egy kedvenc
+        animációs filmje egy jelenete környezetének részletét modellezi
+        beépített geometriák megfelelő egymás mellé helyezésével.
+        <ul>
+          <li>
+            A beadott modell nem hasonlíthat a Three.js jegyzetben szereplő
+            egyik modellre sem (pl. helikopter, malom, csónak stb.)
+          </li>
+          <li>
+            A modellnek legalább 6 geometriát kell tartalmaznia, amelyek
+            transzformációk segítségével kerülnek a helyükre.
+          </li>
+          <li>
+            A feladatban mindegyik geometrián legalább két különböző
+            transzformációt (skálázás, forgatás vagy eltolás) kell alkalmazni a
+            végső megoldás kialakításához. A beadott feladatban mindegyik
+            transzformációnak szerepelnie kell legalább 3-szor.
+          </li>
+          <li>Az alakzat legyen körbeforgatható TrackballControls-zal.</li>
+        </ul>
+        Az elkészült HTML állomány neve legyen a hallgató neve aláhúzás
+        neptunkód pont html (pl. KaracsonySzilveszter_NeptunKodXX.html) Az
+        állomány neve nem tartalmazhat ékezetes betűket, speciális karaktereket
+        és szóközöket, csak az angol ábécé betűit, számokat és az aláhúzás
+        karaktert. <br />
+        A HTML állományt és a szükséges modulokat (a teljes js-r167 modul
+        alkönyvtárat is rakja bele a tömörített állományba, és ez az alkönyvtár
+        a beadandó állományhoz relatív elérési úttal legyen megadva) tömörítse
+        be egy ZIP vagy RAR állományba és töltse fel a megadott határidőig a
+        CooSpace-re. (A beküldött megoldásokat szkript dolgozza fel majd. Az
+        adott típusú állományokat találja meg és csomagolja ki.). <br />
+        A megoldás többször is beadható, de csak a legutolsó kerül értékelésre!
+        1 darab ZIP/RAR fájlt töltsön fel. <br />
+        Ha szöveges információt is csatolni szeretne a megoldáshoz, azt egy txt
+        fájlban helyezze el a tömörített csomagban. Ha a program nem működik,
+        akkor automatikusan 0 pontot kap a hallgató. A határidő után és
+        megjegyzésben feltöltött megoldásért nem jár pont.
+      </sl-alert>
+    </sl-details>
+
+    
+
+    <script
+      type="module"
+      src="/node_modules/@shoelace-style/shoelace/dist/shoelace.js"
+    ></script>
+    <script type="module" src="/ElemiModellezes.js"></script>
+  </body>
+</html>
