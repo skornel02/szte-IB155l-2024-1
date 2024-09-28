@@ -1,2 +1,0 @@
-# Számítógépes grafika
-

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="hu">
+
+<head>
+    <meta charset=utf-8>
+    <title>Elemi modellezés - TFRXIL</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100% }
+    </style>
+</head>
+
+<body>
+
+<script async src="./dist/es-module-shims.js"></script>
+<script type="importmap">
+{
+    "imports": {
+        "three": "./js-r167/build/three.module.js",
+        "trackballcontrols": "./js-r167/examples/jsm/controls/TrackballControls.js"
+    }
+}
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { TrackballControls } from 'trackballcontrols';
+
+    // Globális változók
+    let WIDTH, HEIGHT, aspectRatio;
+    let renderer;
+    let scene, camera;
+    let world;
+    let geometryBox1, geometryBox2, geometryBox3, geometryBox4, geometryBox5, geometryBox6;
+    let material1, material2, material3, material4, material5, material6;
+    let meshBox1, meshBox2, meshBox3, meshBox4, meshBox5, meshBox6;
+    let controls;
+
+    init();
+    // Egy képkocka rajzolása
+    // render();
+    // Animáció indítása
+    animate();
+
+    function init() {
+        // Böngésző ablakméret lekérése és méretarány számítása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        aspectRatio = WIDTH / HEIGHT;
+
+        // Renderer létrehozása és DOM-hoz adása
+        renderer = new THREE.WebGLRenderer( { antialias: true } );
+        renderer.setSize( WIDTH, HEIGHT );
+        renderer.setClearColor( 0xffffff );
+        document.body.appendChild( renderer.domElement );
+
+        // Színtér létrehozása
+        scene = new THREE.Scene();
+
+        world = new THREE.Object3D();
+        scene.add(world);
+
+        const blackMaterial = new THREE.MeshBasicMaterial( { color: 0x000000, wireframe: true } );
+        const greyMaterial = new THREE.MeshBasicMaterial( { color: 0xa3a3a3, wireframe: true } );
+        const whiteMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff, wireframe: true } );
+
+        const circleGeometry = new THREE.CircleGeometry( 100, 6 );
+        
+        const tieWing1 = new THREE.Mesh( circleGeometry, blackMaterial );
+        tieWing1.rotation.y = 0.5 * Math.PI
+        tieWing1.position.x = -100;
+        scene.add( tieWing1 );
+
+        const tieWing2 = new THREE.Mesh( circleGeometry, blackMaterial );
+        tieWing2.rotation.y = 0.5 * Math.PI
+        tieWing2.position.x = -99;
+        scene.add( tieWing2 );
+
+        const tieWing3 = new THREE.Mesh( circleGeometry, blackMaterial );
+        tieWing3.rotation.y = 0.5 * Math.PI
+        tieWing3.position.x = 99;
+        scene.add( tieWing3 );
+
+        const tieWing4 = new THREE.Mesh( circleGeometry, blackMaterial );
+        tieWing4.rotation.y = 0.5 * Math.PI
+        tieWing4.position.x = 100;
+        scene.add( tieWing4 );
+
+        const cockpitGeometry = new THREE.CapsuleGeometry(40, 1, 4, 8)
+        const cockpit = new THREE.Mesh(cockpitGeometry, greyMaterial);
+        cockpit.rotation.x = 0.185 * Math.PI
+        cockpit.scale.y = 1.2;
+        scene.add(cockpit)
+
+        const connectorGeometry = new THREE.CylinderGeometry( 35, 20, 20, 6 );
+
+        const connector1 = new THREE.Mesh( connectorGeometry, greyMaterial );
+        connector1.rotation.x = 0.185 * Math.PI
+        connector1.rotation.z = 0.5 * Math.PI
+        connector1.position.x = 60
+        connector1.scale.y = 4;
+        scene.add( connector1 );
+
+        const connector2 = new THREE.Mesh( connectorGeometry, greyMaterial );
+        connector2.rotation.x = 0.185 * Math.PI
+        connector2.rotation.z = -0.5 * Math.PI
+        connector2.position.x = -60
+        connector2.scale.y = 4;
+        scene.add( connector2 );
+
+
+        // Kamera létrehozása és vetítési paramétereinek beállítása
+        camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 1000 );
+        camera.position.set( 0, 400, 100 );
+        camera.lookAt( scene.position.x, scene.position.y, scene.position.z );
+
+        // Objektumok létrehozása
+
+        //
+        // ...
+        //
+
+        // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
+        window.addEventListener( 'resize', handleWindowResize, false );
+
+        // Kamera vezérlés
+        controls = new TrackballControls( camera, renderer.domElement );
+        controls.rotateSpeed = 5.0;
+        controls.panSpeed = 1.0;
+    }
+
+    function handleWindowResize() {
+        // Az ablak átméretezése esetén a kamera vetítési paraméterek újraszámolása
+        HEIGHT = window.innerHeight;
+        WIDTH = window.innerWidth;
+        console.log( 'WIDTH=' + WIDTH + '; HEIGHT=' + HEIGHT );
+        renderer.setSize( WIDTH, HEIGHT );
+        aspectRatio = WIDTH / HEIGHT;
+        camera.aspect = aspectRatio;
+        camera.updateProjectionMatrix();
+
+        render();
+    }
+
+    function animate() {
+        // Újabb képkocka rajzolásának kérése.
+        // Maximálisan 60 FPS-t biztosít a rendszer.
+        requestAnimationFrame( animate );
+        // Kameramozgás vezérlése
+        controls.update();
+        // Új képkocka rajzolása
+        render();
+    }
+
+    function render() {
+        // 3D -> 2D vetített kép kiszámítása.
+        // scene 3D színtér képe a camera kamera szemszögéből.
+        renderer.render( scene, camera );
+    }
+
+</script>
+</body>
+</html>
