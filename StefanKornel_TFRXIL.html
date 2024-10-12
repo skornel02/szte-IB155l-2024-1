@@ -31,10 +31,12 @@
     let renderer;
     let scene, camera;
     let world;
-    let geometryBox1, geometryBox2, geometryBox3, geometryBox4, geometryBox5, geometryBox6;
-    let material1, material2, material3, material4, material5, material6;
-    let meshBox1, meshBox2, meshBox3, meshBox4, meshBox5, meshBox6;
     let controls;
+
+    let spotLight, spotLightHelper;
+    let spotLightDirection = "right", spotLightSteps = 0;
+
+    let randomCube;
 
     init();
     // Egy képkocka rajzolása
@@ -51,7 +53,8 @@
         // Renderer létrehozása és DOM-hoz adása
         renderer = new THREE.WebGLRenderer( { antialias: true } );
         renderer.setSize( WIDTH, HEIGHT );
-        renderer.setClearColor( 0xffffff );
+        renderer.shadowMap.enabled = true;
+        //renderer.setClearColor( 0xffffff );
         document.body.appendChild( renderer.domElement );
 
         // Színtér létrehozása
@@ -60,36 +63,51 @@
         world = new THREE.Object3D();
         scene.add(world);
 
-        const blackMaterial = new THREE.MeshBasicMaterial( { color: 0x000000, wireframe: true } );
-        const greyMaterial = new THREE.MeshBasicMaterial( { color: 0xa3a3a3, wireframe: true } );
-        const whiteMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff, wireframe: true } );
+        const blackMaterial = new THREE.MeshPhongMaterial( { color: 0x4a4a4a } );
+        blackMaterial.side = THREE.DoubleSide;
+
+        const greyMaterial = new THREE.MeshPhongMaterial( { color: 0xa3a3a3 } );
+        greyMaterial.side = THREE.DoubleSide;
+
+        const whiteMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff } );
+        whiteMaterial.side = THREE.DoubleSide;
 
         const circleGeometry = new THREE.CircleGeometry( 100, 6 );
         
         const tieWing1 = new THREE.Mesh( circleGeometry, blackMaterial );
         tieWing1.rotation.y = 0.5 * Math.PI
-        tieWing1.position.x = -100;
+        tieWing1.position.x = -101;
+        tieWing1.receiveShadow = true;
+        tieWing1.castShadow = true;
         scene.add( tieWing1 );
 
         const tieWing2 = new THREE.Mesh( circleGeometry, blackMaterial );
         tieWing2.rotation.y = 0.5 * Math.PI
-        tieWing2.position.x = -99;
+        tieWing2.position.x = -100;
+        tieWing2.receiveShadow = true;
+        tieWing2.castShadow = true;
         scene.add( tieWing2 );
 
         const tieWing3 = new THREE.Mesh( circleGeometry, blackMaterial );
         tieWing3.rotation.y = 0.5 * Math.PI
-        tieWing3.position.x = 99;
+        tieWing3.position.x = 100;
+        tieWing3.receiveShadow = true;
+        tieWing3.castShadow = true;
         scene.add( tieWing3 );
 
         const tieWing4 = new THREE.Mesh( circleGeometry, blackMaterial );
         tieWing4.rotation.y = 0.5 * Math.PI
-        tieWing4.position.x = 100;
+        tieWing4.position.x = 101;
+        tieWing4.receiveShadow = true;
+        tieWing4.castShadow = true;
         scene.add( tieWing4 );
 
         const cockpitGeometry = new THREE.CapsuleGeometry(40, 1, 4, 8)
         const cockpit = new THREE.Mesh(cockpitGeometry, greyMaterial);
         cockpit.rotation.x = 0.185 * Math.PI
         cockpit.scale.y = 1.2;
+        cockpit.receiveShadow = true;
+        cockpit.castShadow = true;
         scene.add(cockpit)
 
         const connectorGeometry = new THREE.CylinderGeometry( 35, 20, 20, 6 );
@@ -99,6 +117,8 @@
         connector1.rotation.z = 0.5 * Math.PI
         connector1.position.x = 60
         connector1.scale.y = 4;
+        connector1.receiveShadow = true;
+        connector1.castShadow = true;
         scene.add( connector1 );
 
         const connector2 = new THREE.Mesh( connectorGeometry, greyMaterial );
@@ -106,8 +126,18 @@
         connector2.rotation.z = -0.5 * Math.PI
         connector2.position.x = -60
         connector2.scale.y = 4;
+        connector2.receiveShadow = true;
+        connector2.castShadow = true;
         scene.add( connector2 );
 
+        const randomCubeGeometry = new THREE.BoxGeometry( 50, 50, 50);
+        randomCube = new THREE.Mesh(randomCubeGeometry, whiteMaterial)
+        randomCube.position.y = 150;
+        randomCube.position.x = 0;
+        randomCube.position.z = 0;
+        randomCube.receiveShadow = true;
+        randomCube.castShadow = true;
+        scene.add(randomCube)
 
         // Kamera létrehozása és vetítési paramétereinek beállítása
         camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 1000 );
@@ -116,9 +146,36 @@
 
         // Objektumok létrehozása
 
-        //
-        // ...
-        //
+        const ambientLight = new THREE.AmbientLight( 0x404040, 1 );
+        scene.add( ambientLight );
+
+        spotLight = new THREE.SpotLight( 0xffffff, 1000000, 1000);
+        spotLight.position.set( -100, 400, 0 );
+        spotLight.target = cockpit;
+        spotLight.penumbra = 0.5;
+        spotLight.castShadow = true;
+        //spotLight.shadow.bias = -0.001; // this little hack fixes striping.
+        scene.add( spotLight );
+
+        spotLightHelper = new THREE.SpotLightHelper( spotLight );
+        scene.add( spotLightHelper );
+
+        // Sun from the background, yellow light
+        const pointLight = new THREE.PointLight( 0xffff00, 500000, 1000 );
+        pointLight.position.set( 0, -500, 0 );
+        pointLight.castShadow = true;
+        scene.add( pointLight );
+
+        const pointLightHelper = new THREE.PointLightHelper( pointLight, 100 );
+        scene.add( pointLightHelper );
+
+        // random red directional light from the right
+        const directionalLight = new THREE.DirectionalLight( 0xff0000, 1 );
+        directionalLight.position.set( 300, 0, 0 );
+        scene.add( directionalLight );
+
+        const directionalLightHelper = new THREE.DirectionalLightHelper( directionalLight, 100 );
+        scene.add( directionalLightHelper );
 
         // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
         window.addEventListener( 'resize', handleWindowResize, false );
@@ -148,6 +205,18 @@
         requestAnimationFrame( animate );
         // Kameramozgás vezérlése
         controls.update();
+
+        if (spotLightSteps >= 200) {
+            spotLightSteps = 0;
+            spotLightDirection = spotLightDirection === "right" ? "left" :"right";
+        }
+        spotLightSteps++;
+        spotLight.position.x += spotLightDirection === "right" ? 1 : -1;
+        spotLightHelper.update();
+
+        randomCube.rotation.x += 0.01;
+        randomCube.rotation.y += 0.01;
+
         // Új képkocka rajzolása
         render();
     }
