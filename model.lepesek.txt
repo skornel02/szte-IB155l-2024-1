@@ -1,0 +1,6 @@
+1. Egy alap gömb felvétele
+2. A gömb középső (fentről lefelé haladva) körcikkjét három helyen vágjuk meg
+3. Az így keletkezett középső "körgyűrű"-t mélyítsük be 
+4. Hozzunk létre egy új, kisebb gömböt
+5. Helyezzük el az új kis gömböt a megfelelő helyen
+6. Vonjuk ki a kis gömböt a nagy gömbből.
