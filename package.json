@@ -1,0 +1,23 @@
+{
+  "name": "gyak",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skornel02/szte-IB155l-2024-1.git"
+  },
+  "private": true,
+  "imports": {
+    "#trackballcontrols": "./js-r167/examples/jsm/controls/TrackballControls.js"
+  },
+  "devDependencies": {
+    "three": "^0.170.0"
+  },
+  "dependencies": {
+    "lil-gui": "0.17.0"
+  }
+}

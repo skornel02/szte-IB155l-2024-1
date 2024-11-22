@@ -5,57 +5,153 @@
     <meta charset=utf-8>
     <title>Elemi modellezés - TFRXIL</title>
     <style>
-        body { margin: 0; overflow: hidden; }
-        canvas { width: 100%; height: 100% }
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%
+        }
+
+        #info {
+            position: absolute;
+            top: 0;
+            left: 10px;
+            width: 50%;
+            text-align: left;
+            z-index: 100;
+            display:block;
+            color: cyan;
+            opacity: 1.0;
+        }
+
+        #infopanel {
+            margin: 0 4px;
+        }
+
+        #help {
+            position: absolute;
+            top: 0;
+            right: 10px;
+            width: 50%;
+            text-align: right;
+            z-index: 100;
+            display:block;
+            color: cyan;
+            opacity: 1.0;
+        }
+
+        .lil-gui {
+            top: unset !important;
+            bottom: 0;
+        }
     </style>
 </head>
 
 <body>
 
+<div id="info">
+    Stefán Kornél<br>
+    TFRXIL<br>
+    Mérnökinformatikus BSc<br>
+    2024-25/1
+
+    <p id="infopanel">A színtér az egér segítségével körbeforgatható!<br/>
+        Változtassunk a modellezés paraméterein!</p>
+</div>
+
+<div id="help">
+    <p>
+        <b>Segítség:</b><br>
+        <b>W, A, S, D:</b> Kamera mozgatása<br>
+        <b>Q, E:</b> Kamera magasságának változtatása<br>
+        <b>Space:</b> Kamera gyorsulása<br>
+        <b>Shift:</b> Kamera lassítása<br>
+        <b>Ctrl:</b> Kamera forgatása<br>
+        <b>1, 2:</b> Kamera zoomolása<br>
+        <b>0:</b> Kamera alaphelyzetbe állítása<br>
+        <b>I:</b> Információ megjelenítése/eltüntetése<br>
+    </p>
+</div>
+
 <script async src="./dist/es-module-shims.js"></script>
 <script type="importmap">
-{
-    "imports": {
-        "three": "./js-r167/build/three.module.js",
-        "trackballcontrols": "./js-r167/examples/jsm/controls/TrackballControls.js"
+    {
+        "imports": {
+            "three": "./js-r167/build/three.module.js",
+            "#trackballcontrols": "./js-r167/examples/jsm/controls/TrackballControls.js",
+            "three/addons/loaders/OBJLoader.js": "./js-r167/examples/jsm/loaders/OBJLoader.js",
+            "lil-gui": "./js-r167/examples/jsm/libs/lil-gui.module.min.js"
+        }
     }
-}
+</script>
+
+<script>
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'i') {
+            const info = document.getElementById('help');
+            info.style.display = info.style.display === 'none' ? 'block' : 'none';
+        }
+    });
 </script>
 
 <script type="module">
     import * as THREE from 'three';
-    import { TrackballControls } from 'trackballcontrols';
+    import { OBJLoader} from "three/addons/loaders/OBJLoader.js";
+    import {TrackballControls} from '#trackballcontrols';
+    import { GUI } from 'lil-gui';
 
     // Globális változók
     let WIDTH, HEIGHT, aspectRatio;
     let renderer;
     let scene, camera;
+    let ctrl, gui;
     let world;
     let controls;
+    let alderaanMaterial, alderaanExplodingMaterial;
+
+    let worldSun;
+
+    let tieFighter;
+    let alderaan;
+
+    let deathStar;
+    let deathStarLaser;
 
     let spotLight, spotLightHelper;
     let spotLightDirection = "right", spotLightSteps = 0;
 
-    let randomCube;
+    let planetDirection = "waiting", planetSteps = 0;
+    let alderaanBurningLight;
 
-    init();
+    let globalConfig = {
+      dayTime: 'Automatic',
+    };
+
+    await init();
     // Egy képkocka rajzolása
     // render();
     // Animáció indítása
     animate();
 
-    function init() {
+    async function init() {
+        const textureLoader = new THREE.TextureLoader();
+        const objLoader = new OBJLoader();
+
         // Böngésző ablakméret lekérése és méretarány számítása
         HEIGHT = window.innerHeight;
         WIDTH = window.innerWidth;
         aspectRatio = WIDTH / HEIGHT;
 
         // Renderer létrehozása és DOM-hoz adása
-        renderer = new THREE.WebGLRenderer( { antialias: true } );
-        renderer.setSize( WIDTH, HEIGHT );
+        renderer = new THREE.WebGLRenderer({antialias: true});
+        renderer.setSize(WIDTH, HEIGHT);
         renderer.shadowMap.enabled = true;
+
         //renderer.setClearColor( 0xffffff );
-        document.body.appendChild( renderer.domElement );
+        document.body.appendChild(renderer.domElement);
 
         // Színtér létrehozása
         scene = new THREE.Scene();
@@ -63,159 +159,312 @@
         world = new THREE.Object3D();
         scene.add(world);
 
-        const blackMaterial = new THREE.MeshPhongMaterial( { color: 0x4a4a4a } );
+        const blackMaterial = new THREE.MeshPhongMaterial({color: 0x4a4a4a});
         blackMaterial.side = THREE.DoubleSide;
 
-        const greyMaterial = new THREE.MeshPhongMaterial( { color: 0xa3a3a3 } );
+        const greyMaterial = new THREE.MeshPhongMaterial({color: 0xa3a3a3});
         greyMaterial.side = THREE.DoubleSide;
 
-        const whiteMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff } );
+        const whiteMaterial = new THREE.MeshPhongMaterial({color: 0xffffff});
         whiteMaterial.side = THREE.DoubleSide;
 
-        const circleGeometry = new THREE.CircleGeometry( 100, 6 );
-        
-        const tieWing1 = new THREE.Mesh( circleGeometry, blackMaterial );
-        tieWing1.rotation.y = 0.5 * Math.PI
-        tieWing1.position.x = -101;
-        tieWing1.receiveShadow = true;
-        tieWing1.castShadow = true;
-        scene.add( tieWing1 );
+        tieFighter = new THREE.Object3D();
+        {
+            const circleGeometry = new THREE.CylinderGeometry(100, 100, 5, 6, 10);
+            const cockpitGeometry = new THREE.CapsuleGeometry(40, 1, 4, 200);
+            const connectorGeometry = new THREE.CylinderGeometry(35, 20, 20, 6, 10);
 
-        const tieWing2 = new THREE.Mesh( circleGeometry, blackMaterial );
-        tieWing2.rotation.y = 0.5 * Math.PI
-        tieWing2.position.x = -100;
-        tieWing2.receiveShadow = true;
-        tieWing2.castShadow = true;
-        scene.add( tieWing2 );
+            const wingTexture = textureLoader.load('./tiefighter-wing.jpg');
+            const wingMaterial = new THREE.MeshStandardMaterial({map: wingTexture});
+            wingMaterial.side = THREE.DoubleSide;
 
-        const tieWing3 = new THREE.Mesh( circleGeometry, blackMaterial );
-        tieWing3.rotation.y = 0.5 * Math.PI
-        tieWing3.position.x = 100;
-        tieWing3.receiveShadow = true;
-        tieWing3.castShadow = true;
-        scene.add( tieWing3 );
+            const tieWing1 = new THREE.Mesh(circleGeometry, wingMaterial);
+            tieWing1.rotation.z = 0.5 * Math.PI
+            tieWing1.position.x = -100;
+            tieWing1.receiveShadow = true;
+            tieWing1.castShadow = true;
+            tieFighter.add(tieWing1);
 
-        const tieWing4 = new THREE.Mesh( circleGeometry, blackMaterial );
-        tieWing4.rotation.y = 0.5 * Math.PI
-        tieWing4.position.x = 101;
-        tieWing4.receiveShadow = true;
-        tieWing4.castShadow = true;
-        scene.add( tieWing4 );
+            const tieWing3 = new THREE.Mesh(circleGeometry, wingMaterial);
+            tieWing3.rotation.z = 0.5 * Math.PI
+            tieWing3.position.x = 100;
+            tieWing3.receiveShadow = true;
+            tieWing3.castShadow = true;
+            tieFighter.add(tieWing3);
 
-        const cockpitGeometry = new THREE.CapsuleGeometry(40, 1, 4, 8)
-        const cockpit = new THREE.Mesh(cockpitGeometry, greyMaterial);
-        cockpit.rotation.x = 0.185 * Math.PI
-        cockpit.scale.y = 1.2;
-        cockpit.receiveShadow = true;
-        cockpit.castShadow = true;
-        scene.add(cockpit)
+            const cockpit = new THREE.Mesh(cockpitGeometry, greyMaterial);
+            cockpit.rotation.x = 0.185 * Math.PI
+            cockpit.scale.y = 1.2;
+            cockpit.receiveShadow = true;
+            cockpit.castShadow = true;
+            tieFighter.add(cockpit)
 
-        const connectorGeometry = new THREE.CylinderGeometry( 35, 20, 20, 6 );
 
-        const connector1 = new THREE.Mesh( connectorGeometry, greyMaterial );
-        connector1.rotation.x = 0.185 * Math.PI
-        connector1.rotation.z = 0.5 * Math.PI
-        connector1.position.x = 60
-        connector1.scale.y = 4;
-        connector1.receiveShadow = true;
-        connector1.castShadow = true;
-        scene.add( connector1 );
+            const connector1 = new THREE.Mesh(connectorGeometry, greyMaterial);
+            connector1.rotation.x = 0.185 * Math.PI
+            connector1.rotation.z = 0.5 * Math.PI
+            connector1.position.x = 60
+            connector1.scale.y = 4;
+            connector1.receiveShadow = true;
+            connector1.castShadow = true;
+            tieFighter.add(connector1);
 
-        const connector2 = new THREE.Mesh( connectorGeometry, greyMaterial );
-        connector2.rotation.x = 0.185 * Math.PI
-        connector2.rotation.z = -0.5 * Math.PI
-        connector2.position.x = -60
-        connector2.scale.y = 4;
-        connector2.receiveShadow = true;
-        connector2.castShadow = true;
-        scene.add( connector2 );
+            const connector2 = new THREE.Mesh(connectorGeometry, greyMaterial);
+            connector2.rotation.x = 0.185 * Math.PI
+            connector2.rotation.z = -0.5 * Math.PI
+            connector2.position.x = -60
+            connector2.scale.y = 4;
+            connector2.receiveShadow = true;
+            connector2.castShadow = true;
+            tieFighter.add(connector2);
+        }
+        tieFighter.scale.set(0.3, 0.3, 0.3);
+        scene.add(tieFighter);
 
-        const randomCubeGeometry = new THREE.BoxGeometry( 50, 50, 50);
-        randomCube = new THREE.Mesh(randomCubeGeometry, whiteMaterial)
-        randomCube.position.y = 150;
-        randomCube.position.x = 0;
-        randomCube.position.z = 0;
-        randomCube.receiveShadow = true;
-        randomCube.castShadow = true;
-        scene.add(randomCube)
+        {
+            const alderaanGeometry = new THREE.SphereGeometry(1000, 32, 32);
+            // from: https://www.deviantart.com/reesecandy2003/art/Map-of-Alderaan-Star-Wars-997614266
+            const alderaanTexture = textureLoader.load('./alderaan.jpg');
+            alderaanMaterial = new THREE.MeshPhongMaterial({map: alderaanTexture});
+            const alderaanExplodingTexture = textureLoader.load('./alderaan-exploding.jpg');
+            alderaanExplodingMaterial = new THREE.MeshPhongMaterial({map: alderaanExplodingTexture});
+            alderaan = new THREE.Mesh(alderaanGeometry, alderaanMaterial);
+            alderaan.position.y = -1800;
+            //alderaanMesh.receiveShadow = true;
+            alderaan.castShadow = true;
+            scene.add(alderaan);
 
-        // Kamera létrehozása és vetítési paramétereinek beállítása
-        camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 1000 );
-        camera.position.set( 0, 400, 100 );
-        camera.lookAt( scene.position.x, scene.position.y, scene.position.z );
+            const alderaanAxesHelper = new THREE.AxesHelper(1500);
+            alderaan.add(alderaanAxesHelper);
+        }
+
+        {
+            deathStar = await objLoader.loadAsync('./death_star.obj');
+
+            console.log(deathStar);
+
+            // https://3dmoddeling.blogspot.com/2011/12/blog-post_12.html
+            const deathStarTexture = textureLoader.load('./death_star.jpg');
+            const deathStarMaterial = new THREE.MeshPhongMaterial({
+                map: deathStarTexture,
+                reflectivity: 0,
+                shininess: 5,
+            });
+
+            for (const deathPart of deathStar.children) {
+                deathPart.material = deathStarMaterial;
+
+                if (deathPart.name === 'Sphere.001') {
+                    deathPart.visible = false;
+                }
+            }
+
+            deathStar.rotation.x = -0.5 * Math.PI;
+            deathStar.rotation.y = -0.35 * Math.PI;
+
+            deathStar.position.x = -400;
+            deathStar.position.y = -500;
+
+            scene.add(deathStar);
+
+            deathStarLaser = new THREE.PointLight(0x00ff00, 0, 2000);
+
+            deathStarLaser.position.set(-350, -565, -45);
+            deathStarLaser.castShadow = true;
+
+            scene.add(deathStarLaser);
+
+            // const deathStarLaserHelper = new THREE.PointLightHelper(deathStarLaser, 25);
+            // scene.add(deathStarLaserHelper);
+        }
 
         // Objektumok létrehozása
+        const ambientLight = new THREE.AmbientLight(0x404040, 1);
+        scene.add(ambientLight);
 
-        const ambientLight = new THREE.AmbientLight( 0x404040, 1 );
-        scene.add( ambientLight );
-
-        spotLight = new THREE.SpotLight( 0xffffff, 1000000, 1000);
-        spotLight.position.set( -100, 400, 0 );
-        spotLight.target = cockpit;
-        spotLight.penumbra = 0.5;
+        spotLight = new THREE.SpotLight(0xffffff, 1000000, 2000, Math.PI / 4, 0.1);
+        spotLight.position.set(-200, 400, 0);
+        spotLight.target = tieFighter;
         spotLight.castShadow = true;
-        //spotLight.shadow.bias = -0.001; // this little hack fixes striping.
-        scene.add( spotLight );
+        //spotLight.shadow.bias = 0.001; // this little hack fixes striping.
+        scene.add(spotLight);
 
-        spotLightHelper = new THREE.SpotLightHelper( spotLight );
-        scene.add( spotLightHelper );
+        spotLightHelper = new THREE.SpotLightHelper(spotLight);
+        scene.add(spotLightHelper);
 
-        // Sun from the background, yellow light
-        const pointLight = new THREE.PointLight( 0xffff00, 500000, 1000 );
-        pointLight.position.set( 0, -500, 0 );
-        pointLight.castShadow = true;
-        scene.add( pointLight );
+        {
+            // Sun from the background, yellow light
+            const sunLight = new THREE.PointLight(0xf2e3ac, 5000000, 5000);
+            sunLight.position.set(0, -2500, 0);
+            sunLight.castShadow = true;
 
-        const pointLightHelper = new THREE.PointLightHelper( pointLight, 100 );
-        scene.add( pointLightHelper );
+            const sunPlanetGeometry = new THREE.SphereGeometry(50, 32, 32);
+            const sunPlanetMaterial = new THREE.MeshBasicMaterial({color: 0xf2e3ac});
+            const sunPlanet = new THREE.Mesh(sunPlanetGeometry, sunPlanetMaterial);
+
+            sunLight.add(sunPlanet);
+
+            worldSun = new THREE.Object3D();
+            worldSun.add(sunLight);
+
+            worldSun.rotation.z = 0.15 * Math.PI;
+
+            scene.add(worldSun);
+        }
 
         // random red directional light from the right
-        const directionalLight = new THREE.DirectionalLight( 0xff0000, 1 );
-        directionalLight.position.set( 300, 0, 0 );
-        scene.add( directionalLight );
+        alderaanBurningLight = new THREE.DirectionalLight(0xff0000, 0);
+        alderaanBurningLight.position.x = 0;
+        alderaanBurningLight.position.y = -600;
 
-        const directionalLightHelper = new THREE.DirectionalLightHelper( directionalLight, 100 );
-        scene.add( directionalLightHelper );
+        alderaanBurningLight.rotation.x = Math.PI;
+
+        scene.add(alderaanBurningLight);
+
+        const directionalLightHelper = new THREE.DirectionalLightHelper(alderaanBurningLight, 100);
+        scene.add(directionalLightHelper);
+
+        // Kamera létrehozása és vetítési paramétereinek beállítása
+        camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 10000);
+        camera.position.set(0, 200, 1);
+        camera.lookAt(scene.position.x, scene.position.y, scene.position.z);
 
         // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
-        window.addEventListener( 'resize', handleWindowResize, false );
+        window.addEventListener('resize', handleWindowResize, false);
 
         // Kamera vezérlés
-        controls = new TrackballControls( camera, renderer.domElement );
+        controls = new TrackballControls(camera, renderer.domElement);
         controls.rotateSpeed = 5.0;
         controls.panSpeed = 1.0;
+
+        // gui
+        // ctrl = new MaterialController();
+        gui = new GUI( { autoPlace: false,   } );
+
+        const dayTimeController = gui.add(globalConfig, 'dayTime', ['Automatic', 'Day', 'Night']);
+        dayTimeController.onChange((value) => {
+            if (value === 'Day') {
+                worldSun.rotation.z = Math.PI;
+            } else if (value === 'Night') {
+                worldSun.rotation.z = 0;
+            }
+        });
+
+        const fireAldoraan = 'Fire the Death Star';
+        globalConfig[fireAldoraan] = () => {
+            if (planetDirection !== "waiting") {
+                alert('Aldoraan is already gone!');
+                return;
+            }
+
+            planetSteps = 0;
+            planetDirection = "firing-up";
+        };
+        gui.add(globalConfig, fireAldoraan);
+
+        const respawnAldoraan = 'Respawn Aldoraan';
+        globalConfig[respawnAldoraan] = () => {
+            if (planetDirection !== "exploded") {
+                alert('Aldoraan is not gone yet...');
+                return;
+            }
+
+            planetSteps = 0;
+            planetDirection = "waiting";
+            alderaan.material = alderaanMaterial;
+            alderaan.scale.set(1, 1, 1);
+            alderaanBurningLight.intensity = 0;
+        };
+        gui.add(globalConfig, respawnAldoraan);
+
+        placeControlGui(gui);
     }
 
     function handleWindowResize() {
         // Az ablak átméretezése esetén a kamera vetítési paraméterek újraszámolása
         HEIGHT = window.innerHeight;
         WIDTH = window.innerWidth;
-        console.log( 'WIDTH=' + WIDTH + '; HEIGHT=' + HEIGHT );
-        renderer.setSize( WIDTH, HEIGHT );
+        console.log('WIDTH=' + WIDTH + '; HEIGHT=' + HEIGHT);
+        renderer.setSize(WIDTH, HEIGHT);
         aspectRatio = WIDTH / HEIGHT;
         camera.aspect = aspectRatio;
         camera.updateProjectionMatrix();
 
+        placeControlGui(gui);
+
         render();
+    }
+
+    function placeControlGui( gui ) {
+        gui.domElement.style.position = 'absolute';
+        gui.domElement.style.top = '0px';
+        gui.domElement.style.right = '0px';
+        gui.domElement.style.zIndex = '120';
+        document.body.appendChild( gui.domElement );
     }
 
     function animate() {
         // Újabb képkocka rajzolásának kérése.
         // Maximálisan 60 FPS-t biztosít a rendszer.
-        requestAnimationFrame( animate );
+        requestAnimationFrame(animate);
         // Kameramozgás vezérlése
         controls.update();
 
-        if (spotLightSteps >= 200) {
+        if (spotLightSteps >= 400) {
             spotLightSteps = 0;
-            spotLightDirection = spotLightDirection === "right" ? "left" :"right";
+            spotLightDirection = spotLightDirection === "right" ? "left" : "right";
         }
         spotLightSteps++;
         spotLight.position.x += spotLightDirection === "right" ? 1 : -1;
         spotLightHelper.update();
 
-        randomCube.rotation.x += 0.01;
-        randomCube.rotation.y += 0.01;
+        // rotate sun
+        if (globalConfig.dayTime === 'Automatic') {
+            worldSun.rotation.z += 0.0005;
+        }
+
+        if (planetDirection === "firing-up") {
+            planetSteps += 5;
+
+            deathStarLaser.intensity = planetSteps * planetSteps;
+
+            if (planetSteps >= 1000) {
+                deathStarLaser.intensity = 0;
+                planetSteps = 0;
+                planetDirection = "imploding";
+            }
+        } else  if (planetDirection === "imploding") {
+            const scale = 0.2 + (1 - planetSteps / 1000) * 0.8;
+            alderaan.scale.set(scale, scale, scale);
+
+            alderaanBurningLight.intensity = 100000000;
+
+            planetSteps += 10;
+
+            if (planetSteps >= 1000) {
+                planetSteps = 0;
+                planetDirection = "exploding";
+            }
+        } else if (planetDirection === "exploding") {
+            if (planetSteps === 0) {
+                alderaan.material = alderaanExplodingMaterial;
+            }
+
+
+            const scale = 0.2 + (planetSteps / 1000) * 0.8;
+            alderaan.scale.set(scale, scale, scale);
+
+            planetSteps += 20;
+
+            if (planetSteps >= 1000) {
+                planetSteps = 0;
+                planetDirection = "exploded";
+                alderaanBurningLight.intensity = 10000;
+            }
+        }
+
+        // rotate planet
+        alderaan.rotation.z += 0.0001;
 
         // Új képkocka rajzolása
         render();
@@ -224,7 +473,7 @@
     function render() {
         // 3D -> 2D vetített kép kiszámítása.
         // scene 3D színtér képe a camera kamera szemszögéből.
-        renderer.render( scene, camera );
+        renderer.render(scene, camera);
     }
 
 </script>
