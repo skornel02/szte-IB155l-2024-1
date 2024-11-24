@@ -12,12 +12,14 @@
   },
   "private": true,
   "imports": {
-    "#trackballcontrols": "./js-r167/examples/jsm/controls/TrackballControls.js"
+    "#trackballcontrols": "./js-r167/examples/jsm/controls/TrackballControls.js",
+    "#firstpersoncontrols": "./js-r167/examples/jsm/controls/FirstPersonControls.js"
   },
   "devDependencies": {
     "three": "^0.170.0"
   },
   "dependencies": {
-    "lil-gui": "0.17.0"
+    "lil-gui": "0.17.0",
+    "tween": "^0.9.0"
   }
 }

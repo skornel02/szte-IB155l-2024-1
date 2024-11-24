@@ -57,32 +57,34 @@
     TFRXIL<br>
     Mérnökinformatikus BSc<br>
     2024-25/1
-
-    <p id="infopanel">A színtér az egér segítségével körbeforgatható!<br/>
-        Változtassunk a modellezés paraméterein!</p>
 </div>
 
 <div id="help">
     <p>
         <b>Segítség:</b><br>
-        <b>W, A, S, D:</b> Kamera mozgatása<br>
-        <b>Q, E:</b> Kamera magasságának változtatása<br>
-        <b>Space:</b> Kamera gyorsulása<br>
-        <b>Shift:</b> Kamera lassítása<br>
-        <b>Ctrl:</b> Kamera forgatása<br>
-        <b>1, 2:</b> Kamera zoomolása<br>
+        <b>Bal katt nyomvatartás</b> Kamera forgatása<br>
+        <b>Jobb katt nyomvatartás</b> Kamera mozgatása<br>
         <b>0:</b> Kamera alaphelyzetbe állítása<br>
         <b>I:</b> Információ megjelenítése/eltüntetése<br>
+        <b>Bolygó robbantás</b> Jobb alsó sarokban indítható<br>
+        <b>Bolygó újjáteremtése</b> Jobb alsó sarokban indítható<br>
     </p>
 </div>
+
+<audio preload="auto" id="soundFile">
+    <source src="./death_star_laser.mp3" >
+</audio>
 
 <script async src="./dist/es-module-shims.js"></script>
 <script type="importmap">
     {
         "imports": {
             "three": "./js-r167/build/three.module.js",
+            "tween": "./js-r167/examples/jsm/libs/tween.module.js",
             "#trackballcontrols": "./js-r167/examples/jsm/controls/TrackballControls.js",
+            "#firstpersoncontrols": "./js-r167/examples/jsm/controls/FirstPersonControls.js",
             "three/addons/loaders/OBJLoader.js": "./js-r167/examples/jsm/loaders/OBJLoader.js",
+            "three/addons/loaders/MTLLoader.js": "./js-r167/examples/jsm/loaders/MTLLoader.js",
             "lil-gui": "./js-r167/examples/jsm/libs/lil-gui.module.min.js"
         }
     }
@@ -94,14 +96,24 @@
             const info = document.getElementById('help');
             info.style.display = info.style.display === 'none' ? 'block' : 'none';
         }
+
+        if (event.key === '0') {
+            resetCamera();
+        }
     });
 </script>
 
 <script type="module">
     import * as THREE from 'three';
-    import { OBJLoader} from "three/addons/loaders/OBJLoader.js";
+    import * as TWEEN from 'tween';
+    import {OBJLoader} from "three/addons/loaders/OBJLoader.js";
+    import {MTLLoader} from 'three/addons/loaders/MTLLoader.js';
+
     import {TrackballControls} from '#trackballcontrols';
+    import {FirstPersonControls} from "#firstpersoncontrols";
     import { GUI } from 'lil-gui';
+
+    const deathStarFireSound = document.getElementById('soundFile');
 
     // Globális változók
     let WIDTH, HEIGHT, aspectRatio;
@@ -109,26 +121,38 @@
     let scene, camera;
     let ctrl, gui;
     let world;
-    let controls;
+    let trackballControls;
     let alderaanMaterial, alderaanExplodingMaterial;
 
     let worldSun;
 
     let tieFighter;
+    let tieFighterDirection = "up", tieFighterSteps = 10;
+
     let alderaan;
 
     let deathStar;
     let deathStarLaser;
+    let deathStarLaserLight;
 
     let spotLight, spotLightHelper;
     let spotLightDirection = "right", spotLightSteps = 0;
 
-    let planetDirection = "waiting", planetSteps = 0;
+    let planetState = "waiting", planetStateStarted = false, planetSteps = 0;
     let alderaanBurningLight;
 
+    const dayTime = "Day time";
+    const sunEnabled = "Sun enabled";
+    const tieFighterLamp = "Tie Fighter light";
     let globalConfig = {
-      dayTime: 'Automatic',
+        [dayTime]: 'Automatic',
+        [sunEnabled]: true,
+        [tieFighterLamp]: true,
     };
+
+    deathStarFireSound.load();
+    deathStarFireSound.volume = 0.000000;
+    deathStarFireSound.play();
 
     await init();
     // Egy képkocka rajzolása
@@ -136,9 +160,19 @@
     // Animáció indítása
     animate();
 
+    function resetCamera() {
+        camera.position.set(0, 200, 100);
+        camera.lookAt(tieFighter.position.x, tieFighter.position.y, tieFighter.position.z);
+        camera.rotation.set(0, 0, 0);
+
+        trackballControls?.reset();
+    }
+    window.resetCamera = resetCamera;
+
     async function init() {
         const textureLoader = new THREE.TextureLoader();
         const objLoader = new OBJLoader();
+        const mtlLoader = new MTLLoader();
 
         // Böngésző ablakméret lekérése és méretarány számítása
         HEIGHT = window.innerHeight;
@@ -155,6 +189,8 @@
 
         // Színtér létrehozása
         scene = new THREE.Scene();
+
+        scene.fog = new THREE.FogExp2( 0x808080, 0.00009 );
 
         world = new THREE.Object3D();
         scene.add(world);
@@ -177,6 +213,8 @@
             const wingTexture = textureLoader.load('./tiefighter-wing.jpg');
             const wingMaterial = new THREE.MeshStandardMaterial({map: wingTexture});
             wingMaterial.side = THREE.DoubleSide;
+            wingMaterial.bumpMap = wingTexture;
+            wingMaterial.bumpScale = 100;
 
             const tieWing1 = new THREE.Mesh(circleGeometry, wingMaterial);
             tieWing1.rotation.z = 0.5 * Math.PI
@@ -185,12 +223,12 @@
             tieWing1.castShadow = true;
             tieFighter.add(tieWing1);
 
-            const tieWing3 = new THREE.Mesh(circleGeometry, wingMaterial);
-            tieWing3.rotation.z = 0.5 * Math.PI
-            tieWing3.position.x = 100;
-            tieWing3.receiveShadow = true;
-            tieWing3.castShadow = true;
-            tieFighter.add(tieWing3);
+            const tieWing2 = new THREE.Mesh(circleGeometry, wingMaterial);
+            tieWing2.rotation.z = 0.5 * Math.PI
+            tieWing2.position.x = 100;
+            tieWing2.receiveShadow = true;
+            tieWing2.castShadow = true;
+            tieFighter.add(tieWing2);
 
             const cockpit = new THREE.Mesh(cockpitGeometry, greyMaterial);
             cockpit.rotation.x = 0.185 * Math.PI
@@ -206,7 +244,7 @@
             connector1.position.x = 60
             connector1.scale.y = 4;
             connector1.receiveShadow = true;
-            connector1.castShadow = true;
+            // connector1.castShadow = true;
             tieFighter.add(connector1);
 
             const connector2 = new THREE.Mesh(connectorGeometry, greyMaterial);
@@ -218,7 +256,7 @@
             connector2.castShadow = true;
             tieFighter.add(connector2);
         }
-        tieFighter.scale.set(0.3, 0.3, 0.3);
+        tieFighter.scale.set(0.1, 0.1, 0.1);
         scene.add(tieFighter);
 
         {
@@ -230,30 +268,33 @@
             alderaanExplodingMaterial = new THREE.MeshPhongMaterial({map: alderaanExplodingTexture});
             alderaan = new THREE.Mesh(alderaanGeometry, alderaanMaterial);
             alderaan.position.y = -1800;
-            //alderaanMesh.receiveShadow = true;
+            alderaan.receiveShadow = true;
             alderaan.castShadow = true;
             scene.add(alderaan);
 
-            const alderaanAxesHelper = new THREE.AxesHelper(1500);
-            alderaan.add(alderaanAxesHelper);
+            // const alderaanAxesHelper = new THREE.AxesHelper(1500);
+            // alderaan.add(alderaanAxesHelper);
+
+            alderaanBurningLight = new THREE.DirectionalLight(0xff0000, 0);
+            alderaanBurningLight.position.x = 0;
+            alderaanBurningLight.position.y = -600;
+
+            alderaanBurningLight.rotation.x = Math.PI;
+
+            scene.add(alderaanBurningLight);
+
+            // const directionalLightHelper = new THREE.DirectionalLightHelper(alderaanBurningLight, 100);
+            // scene.add(directionalLightHelper);
         }
 
         {
-            deathStar = await objLoader.loadAsync('./death_star.obj');
+            const deathStarMaterials = await mtlLoader.loadAsync('./death_star.mtl');
 
-            console.log(deathStar);
-
-            // https://3dmoddeling.blogspot.com/2011/12/blog-post_12.html
-            const deathStarTexture = textureLoader.load('./death_star.jpg');
-            const deathStarMaterial = new THREE.MeshPhongMaterial({
-                map: deathStarTexture,
-                reflectivity: 0,
-                shininess: 5,
-            });
+            deathStar = await objLoader
+                .setMaterials(deathStarMaterials)
+                .loadAsync('./death_star.obj');
 
             for (const deathPart of deathStar.children) {
-                deathPart.material = deathStarMaterial;
-
                 if (deathPart.name === 'Sphere.001') {
                     deathPart.visible = false;
                 }
@@ -267,12 +308,30 @@
 
             scene.add(deathStar);
 
-            deathStarLaser = new THREE.PointLight(0x00ff00, 0, 2000);
+            const deathStarLaserMaterial = new THREE.MeshPhongMaterial({
+                color: 0x00ff00,
+                shininess: 250,
+            });
 
-            deathStarLaser.position.set(-350, -565, -45);
-            deathStarLaser.castShadow = true;
+            deathStarLaser = await objLoader
+                .loadAsync('./death_star_laser.obj');
 
+            for (const laserPart of deathStarLaser.children) {
+                laserPart.material = deathStarLaserMaterial;
+            }
+
+            deathStarLaser.position.set(-325, -540, -45);
+            deathStarLaser.scale.set(2, 0.8, 2)
+            deathStarLaser.rotation.set(1.25 * Math.PI, 0, -0.30 * Math.PI);
+            deathStarLaser.visible = false;
             scene.add(deathStarLaser);
+
+            deathStarLaserLight = new THREE.PointLight(0x00ff00, 0, 2000);
+
+            deathStarLaserLight.position.set(-350, -565, -45);
+            deathStarLaserLight.castShadow = true;
+
+            scene.add(deathStarLaserLight);
 
             // const deathStarLaserHelper = new THREE.PointLightHelper(deathStarLaser, 25);
             // scene.add(deathStarLaserHelper);
@@ -282,7 +341,7 @@
         const ambientLight = new THREE.AmbientLight(0x404040, 1);
         scene.add(ambientLight);
 
-        spotLight = new THREE.SpotLight(0xffffff, 1000000, 2000, Math.PI / 4, 0.1);
+        spotLight = new THREE.SpotLight(0xffffff, 1000000, 2000, Math.PI / 4, 0.8);
         spotLight.position.set(-200, 400, 0);
         spotLight.target = tieFighter;
         spotLight.castShadow = true;
@@ -290,7 +349,7 @@
         scene.add(spotLight);
 
         spotLightHelper = new THREE.SpotLightHelper(spotLight);
-        scene.add(spotLightHelper);
+        // scene.add(spotLightHelper);
 
         {
             // Sun from the background, yellow light
@@ -312,65 +371,62 @@
             scene.add(worldSun);
         }
 
-        // random red directional light from the right
-        alderaanBurningLight = new THREE.DirectionalLight(0xff0000, 0);
-        alderaanBurningLight.position.x = 0;
-        alderaanBurningLight.position.y = -600;
-
-        alderaanBurningLight.rotation.x = Math.PI;
-
-        scene.add(alderaanBurningLight);
-
-        const directionalLightHelper = new THREE.DirectionalLightHelper(alderaanBurningLight, 100);
-        scene.add(directionalLightHelper);
-
         // Kamera létrehozása és vetítési paramétereinek beállítása
         camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 10000);
-        camera.position.set(0, 200, 1);
-        camera.lookAt(scene.position.x, scene.position.y, scene.position.z);
+        resetCamera();
 
         // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
         window.addEventListener('resize', handleWindowResize, false);
 
         // Kamera vezérlés
-        controls = new TrackballControls(camera, renderer.domElement);
-        controls.rotateSpeed = 5.0;
-        controls.panSpeed = 1.0;
+        trackballControls = new TrackballControls(camera, renderer.domElement);
+        trackballControls.rotateSpeed = 5.0;
+        trackballControls.panSpeed = 1.0;
 
-        // gui
-        // ctrl = new MaterialController();
+
+        addGui();
+    }
+
+    function addGui() {
+
         gui = new GUI( { autoPlace: false,   } );
 
-        const dayTimeController = gui.add(globalConfig, 'dayTime', ['Automatic', 'Day', 'Night']);
-        dayTimeController.onChange((value) => {
-            if (value === 'Day') {
-                worldSun.rotation.z = Math.PI;
-            } else if (value === 'Night') {
-                worldSun.rotation.z = 0;
-            }
-        });
+        gui.add(globalConfig, dayTime, ['Automatic', 'Day', 'Night', 'RealTime'])
+            .onChange((value) => {
+                if (value === 'Day') {
+                    worldSun.rotation.z = Math.PI;
+                } else if (value === 'Night') {
+                    worldSun.rotation.z = 0;
+                }
+            });
+
+        gui.add(globalConfig, sunEnabled)
+            .onChange((enabled) => worldSun.visible = enabled);
+
+        gui.add(globalConfig, tieFighterLamp)
+            .onChange((enabled) => spotLight.visible = enabled);
 
         const fireAldoraan = 'Fire the Death Star';
         globalConfig[fireAldoraan] = () => {
-            if (planetDirection !== "waiting") {
+            if (planetState !== "waiting") {
                 alert('Aldoraan is already gone!');
                 return;
             }
 
             planetSteps = 0;
-            planetDirection = "firing-up";
+            planetState = "firing-up";
         };
         gui.add(globalConfig, fireAldoraan);
 
         const respawnAldoraan = 'Respawn Aldoraan';
         globalConfig[respawnAldoraan] = () => {
-            if (planetDirection !== "exploded") {
+            if (planetState !== "exploded") {
                 alert('Aldoraan is not gone yet...');
                 return;
             }
 
             planetSteps = 0;
-            planetDirection = "waiting";
+            planetState = "waiting";
             alderaan.material = alderaanMaterial;
             alderaan.scale.set(1, 1, 1);
             alderaanBurningLight.intensity = 0;
@@ -408,7 +464,16 @@
         // Maximálisan 60 FPS-t biztosít a rendszer.
         requestAnimationFrame(animate);
         // Kameramozgás vezérlése
-        controls.update();
+        trackballControls?.update();
+
+        TWEEN.update();
+
+        if (tieFighterSteps >= 100) {
+            tieFighterSteps = 0;
+            tieFighterDirection = tieFighterDirection === "up" ? "down" : "up";
+        }
+        tieFighterSteps++;
+        tieFighter.position.z += (tieFighterDirection === "up" ? 0.02 : -0.02);
 
         if (spotLightSteps >= 400) {
             spotLightSteps = 0;
@@ -419,47 +484,98 @@
         spotLightHelper.update();
 
         // rotate sun
-        if (globalConfig.dayTime === 'Automatic') {
+        if (globalConfig[dayTime] === 'Automatic') {
             worldSun.rotation.z += 0.0005;
+        } else if (globalConfig[dayTime] === "RealTime") {
+            const time = new Date();
+            const hours = time.getHours();
+            const minutes = time.getMinutes();
+            const seconds = time.getSeconds();
+
+            const dayTime = hours * 3600 + minutes * 60 + seconds;
+
+            worldSun.rotation.z = Math.PI / 6 + (dayTime / 86400) * 2 * Math.PI;
         }
 
-        if (planetDirection === "firing-up") {
-            planetSteps += 5;
+        if (!planetStateStarted) {
 
-            deathStarLaser.intensity = planetSteps * planetSteps;
+            if (planetState === "firing-up") {
+                playDeathStarSound();
+                planetStateStarted = true;
 
-            if (planetSteps >= 1000) {
-                deathStarLaser.intensity = 0;
-                planetSteps = 0;
-                planetDirection = "imploding";
-            }
-        } else  if (planetDirection === "imploding") {
-            const scale = 0.2 + (1 - planetSteps / 1000) * 0.8;
-            alderaan.scale.set(scale, scale, scale);
+                const laserFiringUpTime = 8000;
+                const laserFireMaxIntensity = 1000000;
 
-            alderaanBurningLight.intensity = 100000000;
+                new TWEEN.Tween(deathStarLaserLight)
+                    .delay(4000)
+                    .to({ intensity: laserFireMaxIntensity }, laserFiringUpTime )
+                    .easing(TWEEN.Easing.Exponential.In)
+                    .onStart(function () {
 
-            planetSteps += 10;
+                    })
+                    .onUpdate(function() {
+                        if (deathStarLaserLight.intensity > laserFireMaxIntensity * 0.90)
+                        {
+                            deathStarLaser.visible = true;
+                        }
+                    })
+                    .onComplete(function () {
+                        deathStarLaserLight.intensity = 0;
+                        deathStarLaser.visible = false;
 
-            if (planetSteps >= 1000) {
-                planetSteps = 0;
-                planetDirection = "exploding";
-            }
-        } else if (planetDirection === "exploding") {
-            if (planetSteps === 0) {
-                alderaan.material = alderaanExplodingMaterial;
-            }
+                        planetState = "imploding";
 
+                        planetStateStarted = false;
+                    })
+                    .start();
 
-            const scale = 0.2 + (planetSteps / 1000) * 0.8;
-            alderaan.scale.set(scale, scale, scale);
+            } else if (planetState === "imploding") {
+                planetStateStarted = true;
 
-            planetSteps += 20;
+                const planetCollapsingTime = 6000;
+                const planetCollapsingMinScale = 0.2;
+                const planetBurningLightMax = 100;
 
-            if (planetSteps >= 1000) {
-                planetSteps = 0;
-                planetDirection = "exploded";
-                alderaanBurningLight.intensity = 10000;
+                new TWEEN.Tween(alderaanBurningLight)
+                    .to({ intensity: planetBurningLightMax }, planetCollapsingTime )
+                    .easing(TWEEN.Easing.Exponential.In)
+                    .start();
+
+                new TWEEN.Tween(alderaan.scale)
+                    .to({ x: planetCollapsingMinScale, y: planetCollapsingMinScale, z: planetCollapsingMinScale }, planetCollapsingTime )
+                    .easing(TWEEN.Easing.Exponential.In)
+                    .onComplete(function () {
+                        planetState = "exploding";
+
+                        planetStateStarted = false;
+                    })
+                    .start();
+
+            } else if (planetState === "exploding") {
+
+                planetStateStarted = true;
+
+                const planetCollapsingTime = 7000;
+                const planetCollapsingScale = 1;
+                const planetBurningLightMax = 10;
+
+                new TWEEN.Tween(alderaanBurningLight)
+                    .to({ intensity: planetBurningLightMax }, planetCollapsingTime )
+                    .easing(TWEEN.Easing.Linear.None)
+                    .start();
+
+                new TWEEN.Tween(alderaan.scale)
+                    .to({ x: planetCollapsingScale, y: planetCollapsingScale, z: planetCollapsingScale }, planetCollapsingTime )
+                    .easing(TWEEN.Easing.Exponential.Out)
+                    .onStart(function () {
+                        alderaan.material = alderaanExplodingMaterial;
+                    })
+                    .onComplete(function () {
+                        planetState = "exploded";
+
+                        planetStateStarted = false;
+                    })
+                    .start();
             }
         }
 
@@ -468,6 +584,11 @@
 
         // Új képkocka rajzolása
         render();
+    }
+
+    function playDeathStarSound() {
+        deathStarFireSound.volume = 1;
+        deathStarFireSound.play();
     }
 
     function render() {

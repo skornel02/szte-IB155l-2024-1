@@ -1,0 +1,7 @@
+1. lézer gyűrű felvélete (cilinder)
+2. Lézer gyűrű egyik oldalán inset létrehozás
+3. Inset face-ének törlése
+4. Lézer gyűrű másik oldalán inset létrehozás
+5. Inset face-ének törlése
+6. Cilinderekkel a vékony lézerek létrehozása, pozicionálása
+7. A fókuszált lézer létrehozása cilinderekkel.
