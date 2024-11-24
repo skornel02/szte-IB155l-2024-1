@@ -71,8 +71,12 @@
     </p>
 </div>
 
-<audio preload="auto" id="soundFile">
+<audio preload="auto" id="deathStarLaserSound">
     <source src="./death_star_laser.mp3" >
+</audio>
+
+<audio preload="auto" id="alderaanExplodingSound">
+    <source src="./alderaan-exploding.mp3" >
 </audio>
 
 <script async src="./dist/es-module-shims.js"></script>
@@ -113,7 +117,8 @@
     import {FirstPersonControls} from "#firstpersoncontrols";
     import { GUI } from 'lil-gui';
 
-    const deathStarFireSound = document.getElementById('soundFile');
+    const deathStarFireSound = document.getElementById('deathStarLaserSound');
+    const alderaanExplodingSound = document.getElementById('alderaanExplodingSound');
 
     // Globális változók
     let WIDTH, HEIGHT, aspectRatio;
@@ -127,6 +132,7 @@
     let worldSun;
 
     let tieFighter;
+    const tieFighterBaseX = 0;
     let tieFighterDirection = "up", tieFighterSteps = 10;
 
     let alderaan;
@@ -144,10 +150,12 @@
     const dayTime = "Day time";
     const sunEnabled = "Sun enabled";
     const tieFighterLamp = "Tie Fighter light";
+    const tieFighterOffset = "Tie Fighter offset";
     let globalConfig = {
         [dayTime]: 'Automatic',
         [sunEnabled]: true,
         [tieFighterLamp]: true,
+        [tieFighterOffset]: 0,
     };
 
     deathStarFireSound.load();
@@ -257,6 +265,7 @@
             tieFighter.add(connector2);
         }
         tieFighter.scale.set(0.1, 0.1, 0.1);
+        tieFighter.position.x = tieFighterBaseX;
         scene.add(tieFighter);
 
         {
@@ -298,6 +307,8 @@
                 if (deathPart.name === 'Sphere.001') {
                     deathPart.visible = false;
                 }
+                deathPart.receiveShadow = true;
+                deathPart.castShadow = true;
             }
 
             deathStar.rotation.x = -0.5 * Math.PI;
@@ -328,12 +339,12 @@
 
             deathStarLaserLight = new THREE.PointLight(0x00ff00, 0, 2000);
 
-            deathStarLaserLight.position.set(-350, -565, -45);
+            deathStarLaserLight.position.set(-320, -550, -40);
             deathStarLaserLight.castShadow = true;
 
             scene.add(deathStarLaserLight);
 
-            // const deathStarLaserHelper = new THREE.PointLightHelper(deathStarLaser, 25);
+            // const deathStarLaserHelper = new THREE.PointLightHelper(deathStarLaserLight, 25);
             // scene.add(deathStarLaserHelper);
         }
 
@@ -405,6 +416,9 @@
 
         gui.add(globalConfig, tieFighterLamp)
             .onChange((enabled) => spotLight.visible = enabled);
+
+        gui.add(globalConfig, tieFighterOffset, -10, 10)
+            .onChange((offset) => tieFighter.position.x = tieFighterBaseX + offset);
 
         const fireAldoraan = 'Fire the Death Star';
         globalConfig[fireAldoraan] = () => {
@@ -572,6 +586,7 @@
                     })
                     .onComplete(function () {
                         planetState = "exploded";
+                        playAlderaanExplodingSound();
 
                         planetStateStarted = false;
                     })
@@ -589,6 +604,11 @@
     function playDeathStarSound() {
         deathStarFireSound.volume = 1;
         deathStarFireSound.play();
+    }
+
+    function playAlderaanExplodingSound() {
+        alderaanExplodingSound.volume = 0.8;
+        alderaanExplodingSound.play();
     }
 
     function render() {
