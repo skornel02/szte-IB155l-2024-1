@@ -3,7 +3,7 @@
 
 <head>
     <meta charset=utf-8>
-    <title>Elemi modellezés - TFRXIL</title>
+    <title>Nagybeadandó - TFRXIL</title>
     <style>
         body {
             margin: 0;
@@ -28,7 +28,7 @@
         }
 
         #infopanel {
-            margin: 0 4px;
+            margin: 8px;
         }
 
         #help {
@@ -57,6 +57,9 @@
     TFRXIL<br>
     Mérnökinformatikus BSc<br>
     2024-25/1
+    <p id="infopanel">
+        Legjobb élményért használd hangerővel!
+    </p>
 </div>
 
 <div id="help">
@@ -114,19 +117,18 @@
     import {MTLLoader} from 'three/addons/loaders/MTLLoader.js';
 
     import {TrackballControls} from '#trackballcontrols';
-    import {FirstPersonControls} from "#firstpersoncontrols";
     import { GUI } from 'lil-gui';
 
     const deathStarFireSound = document.getElementById('deathStarLaserSound');
     const alderaanExplodingSound = document.getElementById('alderaanExplodingSound');
 
-    // Globális változók
     let WIDTH, HEIGHT, aspectRatio;
     let renderer;
     let scene, camera;
     let ctrl, gui;
-    let world;
     let trackballControls;
+
+    let alderaan;
     let alderaanMaterial, alderaanExplodingMaterial;
 
     let worldSun;
@@ -135,13 +137,11 @@
     const tieFighterBaseX = 0;
     let tieFighterDirection = "up", tieFighterSteps = 10;
 
-    let alderaan;
-
     let deathStar;
     let deathStarLaser;
     let deathStarLaserLight;
 
-    let spotLight, spotLightHelper;
+    let tieFighterLight, tieFighterLightHelper;
     let spotLightDirection = "right", spotLightSteps = 0;
 
     let planetState = "waiting", planetStateStarted = false, planetSteps = 0;
@@ -158,14 +158,8 @@
         [tieFighterOffset]: 0,
     };
 
-    deathStarFireSound.load();
-    deathStarFireSound.volume = 0.000000;
-    deathStarFireSound.play();
-
     await init();
-    // Egy képkocka rajzolása
-    // render();
-    // Animáció indítása
+
     animate();
 
     function resetCamera() {
@@ -177,6 +171,13 @@
     }
     window.resetCamera = resetCamera;
 
+    /*
+      ___      _
+     / __| ___| |_ _  _ _ __
+     \__ \/ -_)  _| || | '_ \
+     |___/\___|\__|\_,_| .__/
+                       |_|
+     */
     async function init() {
         const textureLoader = new THREE.TextureLoader();
         const objLoader = new OBJLoader();
@@ -198,25 +199,20 @@
         // Színtér létrehozása
         scene = new THREE.Scene();
 
-        scene.fog = new THREE.FogExp2( 0x808080, 0.00009 );
-
-        world = new THREE.Object3D();
-        scene.add(world);
-
-        const blackMaterial = new THREE.MeshPhongMaterial({color: 0x4a4a4a});
-        blackMaterial.side = THREE.DoubleSide;
-
-        const greyMaterial = new THREE.MeshPhongMaterial({color: 0xa3a3a3});
-        greyMaterial.side = THREE.DoubleSide;
-
-        const whiteMaterial = new THREE.MeshPhongMaterial({color: 0xffffff});
-        whiteMaterial.side = THREE.DoubleSide;
-
-        tieFighter = new THREE.Object3D();
+        /*
+          _____ _      __ _      _   _
+         |_   _(_)___ / _(_)__ _| |_| |_ ___ _ _
+           | | | / -_)  _| / _` | ' \  _/ -_) '_|
+           |_| |_\___|_| |_\__, |_||_\__\___|_|
+                           |___/
+         */
         {
             const circleGeometry = new THREE.CylinderGeometry(100, 100, 5, 6, 10);
             const cockpitGeometry = new THREE.CapsuleGeometry(40, 1, 4, 200);
-            const connectorGeometry = new THREE.CylinderGeometry(35, 20, 20, 6, 10);
+            const connectorGeometry = new THREE.CylinderGeometry(35, 20, 20, 6, 10)
+
+            const greyMaterial = new THREE.MeshPhongMaterial({color: 0xa3a3a3});
+            greyMaterial.side = THREE.DoubleSide;
 
             const wingTexture = textureLoader.load('./tiefighter-wing.jpg');
             const wingMaterial = new THREE.MeshStandardMaterial({map: wingTexture});
@@ -229,21 +225,18 @@
             tieWing1.position.x = -100;
             tieWing1.receiveShadow = true;
             tieWing1.castShadow = true;
-            tieFighter.add(tieWing1);
 
             const tieWing2 = new THREE.Mesh(circleGeometry, wingMaterial);
             tieWing2.rotation.z = 0.5 * Math.PI
             tieWing2.position.x = 100;
             tieWing2.receiveShadow = true;
             tieWing2.castShadow = true;
-            tieFighter.add(tieWing2);
 
             const cockpit = new THREE.Mesh(cockpitGeometry, greyMaterial);
             cockpit.rotation.x = 0.185 * Math.PI
             cockpit.scale.y = 1.2;
             cockpit.receiveShadow = true;
             cockpit.castShadow = true;
-            tieFighter.add(cockpit)
 
 
             const connector1 = new THREE.Mesh(connectorGeometry, greyMaterial);
@@ -253,7 +246,6 @@
             connector1.scale.y = 4;
             connector1.receiveShadow = true;
             // connector1.castShadow = true;
-            tieFighter.add(connector1);
 
             const connector2 = new THREE.Mesh(connectorGeometry, greyMaterial);
             connector2.rotation.x = 0.185 * Math.PI
@@ -262,12 +254,36 @@
             connector2.scale.y = 4;
             connector2.receiveShadow = true;
             connector2.castShadow = true;
-            tieFighter.add(connector2);
-        }
-        tieFighter.scale.set(0.1, 0.1, 0.1);
-        tieFighter.position.x = tieFighterBaseX;
-        scene.add(tieFighter);
 
+            tieFighter = new THREE.Object3D();
+
+            tieFighter.add(tieWing1);
+            tieFighter.add(tieWing2);
+            tieFighter.add(cockpit)
+            tieFighter.add(connector1);
+            tieFighter.add(connector2);
+
+            tieFighter.scale.set(0.1, 0.1, 0.1);
+            tieFighter.position.x = tieFighterBaseX;
+            scene.add(tieFighter);
+
+            tieFighterLight = new THREE.SpotLight(0xffffff, 1000000, 2000, Math.PI / 4, 0.8);
+            tieFighterLight.position.set(-200, 400, 0);
+            tieFighterLight.target = tieFighter;
+            tieFighterLight.castShadow = true;
+            //tieFighterLight.shadow.bias = 0.001; // this little hack fixes striping.
+            scene.add(tieFighterLight);
+
+            tieFighterLightHelper = new THREE.SpotLightHelper(tieFighterLight);
+            // scene.add(spotLightHelper);
+        }
+
+        /*
+            _   _    _
+           /_\ | |__| |___ _ _ __ _ __ _ _ _
+          / _ \| / _` / -_) '_/ _` / _` | ' \
+         /_/ \_\_\__,_\___|_| \__,_\__,_|_||_|
+         */
         {
             const alderaanGeometry = new THREE.SphereGeometry(1000, 32, 32);
             // from: https://www.deviantart.com/reesecandy2003/art/Map-of-Alderaan-Star-Wars-997614266
@@ -296,6 +312,12 @@
             // scene.add(directionalLightHelper);
         }
 
+        /*
+          ___           _   _         _
+         |   \ ___ __ _| |_| |_    __| |_ __ _ _ _
+         | |) / -_) _` |  _| ' \  (_-<  _/ _` | '_|
+         |___/\___\__,_|\__|_||_| /__/\__\__,_|_|
+         */
         {
             const deathStarMaterials = await mtlLoader.loadAsync('./death_star.mtl');
 
@@ -348,22 +370,13 @@
             // scene.add(deathStarLaserHelper);
         }
 
-        // Objektumok létrehozása
-        const ambientLight = new THREE.AmbientLight(0x404040, 1);
-        scene.add(ambientLight);
-
-        spotLight = new THREE.SpotLight(0xffffff, 1000000, 2000, Math.PI / 4, 0.8);
-        spotLight.position.set(-200, 400, 0);
-        spotLight.target = tieFighter;
-        spotLight.castShadow = true;
-        //spotLight.shadow.bias = 0.001; // this little hack fixes striping.
-        scene.add(spotLight);
-
-        spotLightHelper = new THREE.SpotLightHelper(spotLight);
-        // scene.add(spotLightHelper);
-
+        /*
+          ___
+         / __|_  _ _ _
+         \__ \ || | ' \
+         |___/\_,_|_||_|
+         */
         {
-            // Sun from the background, yellow light
             const sunLight = new THREE.PointLight(0xf2e3ac, 5000000, 5000);
             sunLight.position.set(0, -2500, 0);
             sunLight.castShadow = true;
@@ -382,24 +395,36 @@
             scene.add(worldSun);
         }
 
-        // Kamera létrehozása és vetítési paramétereinek beállítása
+        /*
+                _            _ _
+          _ __ (_)___ __ ___| | |__ _ _ _  ___ ___ _  _ ___
+         | '  \| (_-</ _/ -_) | / _` | ' \/ -_) _ \ || (_-<
+         |_|_|_|_/__/\__\___|_|_\__,_|_||_\___\___/\_,_/__/
+         */
+        const ambientLight = new THREE.AmbientLight(0x404040, 1);
+        scene.add(ambientLight);
+
+        scene.fog = new THREE.FogExp2( 0x808080, 0.00009 );
+
         camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 10000);
         resetCamera();
 
-        // Az ablak későbbi átméretezése esetén visszahívható függvény megadása
         window.addEventListener('resize', handleWindowResize, false);
 
-        // Kamera vezérlés
         trackballControls = new TrackballControls(camera, renderer.domElement);
         trackballControls.rotateSpeed = 5.0;
         trackballControls.panSpeed = 1.0;
 
-
         addGui();
     }
 
+    /*
+       ___         _           _    ___ _   _ ___
+      / __|___ _ _| |_ _ _ ___| |  / __| | | |_ _|
+     | (__/ _ \ ' \  _| '_/ _ \ | | (_ | |_| || |
+      \___\___/_||_\__|_| \___/_|  \___|\___/|___|
+     */
     function addGui() {
-
         gui = new GUI( { autoPlace: false,   } );
 
         gui.add(globalConfig, dayTime, ['Automatic', 'Day', 'Night', 'RealTime'])
@@ -415,7 +440,7 @@
             .onChange((enabled) => worldSun.visible = enabled);
 
         gui.add(globalConfig, tieFighterLamp)
-            .onChange((enabled) => spotLight.visible = enabled);
+            .onChange((enabled) => tieFighterLight.visible = enabled);
 
         gui.add(globalConfig, tieFighterOffset, -10, 10)
             .onChange((offset) => tieFighter.position.x = tieFighterBaseX + offset);
@@ -451,7 +476,6 @@
     }
 
     function handleWindowResize() {
-        // Az ablak átméretezése esetén a kamera vetítési paraméterek újraszámolása
         HEIGHT = window.innerHeight;
         WIDTH = window.innerWidth;
         console.log('WIDTH=' + WIDTH + '; HEIGHT=' + HEIGHT);
@@ -473,6 +497,12 @@
         document.body.appendChild( gui.domElement );
     }
 
+    /*
+        _        _            _   _
+       /_\  _ _ (_)_ __  __ _| |_(_)___ _ _
+      / _ \| ' \| | '  \/ _` |  _| / _ \ ' \
+     /_/ \_\_||_|_|_|_|_\__,_|\__|_\___/_||_|
+     */
     function animate() {
         // Újabb képkocka rajzolásának kérése.
         // Maximálisan 60 FPS-t biztosít a rendszer.
@@ -482,6 +512,13 @@
 
         TWEEN.update();
 
+        /*
+          _____ _      __ _      _   _
+         |_   _(_)___ / _(_)__ _| |_| |_ ___ _ _
+           | | | / -_)  _| / _` | ' \  _/ -_) '_|
+           |_| |_\___|_| |_\__, |_||_\__\___|_|
+                           |___/
+         */
         if (tieFighterSteps >= 100) {
             tieFighterSteps = 0;
             tieFighterDirection = tieFighterDirection === "up" ? "down" : "up";
@@ -494,10 +531,15 @@
             spotLightDirection = spotLightDirection === "right" ? "left" : "right";
         }
         spotLightSteps++;
-        spotLight.position.x += spotLightDirection === "right" ? 1 : -1;
-        spotLightHelper.update();
+        tieFighterLight.position.x += spotLightDirection === "right" ? 1 : -1;
+        tieFighterLightHelper.update();
 
-        // rotate sun
+        /*
+          ___
+         / __|_  _ _ _
+         \__ \ || | ' \
+         |___/\_,_|_||_|
+         */
         if (globalConfig[dayTime] === 'Automatic') {
             worldSun.rotation.z += 0.0005;
         } else if (globalConfig[dayTime] === "RealTime") {
@@ -511,6 +553,13 @@
             worldSun.rotation.z = Math.PI / 6 + (dayTime / 86400) * 2 * Math.PI;
         }
 
+        /*
+          ___ _        _             _        _
+         | _ |_)__ _  | |__  __ _ __| |__ _  | |__ _  _ _ __  _ __
+         | _ \ / _` | | '_ \/ _` / _` / _` | | '_ \ || | '  \| '  \
+         |___/_\__, | |_.__/\__,_\__,_\__,_| |_.__/\_,_|_|_|_|_|_|_|
+               |___/
+         */
         if (!planetStateStarted) {
 
             if (planetState === "firing-up") {
@@ -594,13 +643,27 @@
             }
         }
 
-        // rotate planet
+        /*
+            _   _    _
+           /_\ | |__| |___ _ _ __ _ __ _ _ _
+          / _ \| / _` / -_) '_/ _` / _` | ' \
+         /_/ \_\_\__,_\___|_| \__,_\__,_|_||_|
+         */
         alderaan.rotation.z += 0.0001;
 
-        // Új képkocka rajzolása
         render();
     }
 
+    function render() {
+        renderer.render(scene, camera);
+    }
+
+    /*
+      ___                   _
+     / __| ___ _  _ _ _  __| |___
+     \__ \/ _ \ || | ' \/ _` (_-<
+     |___/\___/\_,_|_||_\__,_/__/
+     */
     function playDeathStarSound() {
         deathStarFireSound.volume = 1;
         deathStarFireSound.play();
@@ -610,13 +673,6 @@
         alderaanExplodingSound.volume = 0.8;
         alderaanExplodingSound.play();
     }
-
-    function render() {
-        // 3D -> 2D vetített kép kiszámítása.
-        // scene 3D színtér képe a camera kamera szemszögéből.
-        renderer.render(scene, camera);
-    }
-
 </script>
 </body>
 </html>
