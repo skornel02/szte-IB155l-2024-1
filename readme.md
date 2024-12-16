@@ -1,0 +1,2 @@
+# Számítógépes grafika gyak.
+
